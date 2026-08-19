@@ -1,8 +1,12 @@
+# MODULE 6: DEBIAN ROLLING BASELINE, KERNEL CUSTOMIZATIONS & PRIVILEGE MODEL
+
+---
+
 ## 1. DEBIAN ROLLING BASELINE & REPOSITORY ENGINEERING
 
 ### Rolling Release vs. Standard LTS Models
 
-Kali Linux uses a continuous rolling distribution model derived from the Debian `testing` and `unstable` (`sid`) branches. This contrasts with fixed-schedule, Long-Term Support (LTS) distributions such as Debian Stable or Ubuntu LTS.
+Kali Linux uses a continuous rolling distribution model derived from the Debian testing and unstable (`sid`) branches. This contrasts with fixed-schedule, Long-Term Support (LTS) distributions such as Debian Stable or Ubuntu LTS.
 
 ```
                   [Upstream Open Source / Tool Repositories]
@@ -28,14 +32,11 @@ Kali Linux uses a continuous rolling distribution model derived from the Debian 
 
 ```
 
-#### Toolchain & Shared Library Volatility
+### Toolchain & Shared Library Volatility
 
-* **`glibc` Dynamic Symbol Versioning:**
-Continuous syncs pull updated core C library binaries (`libc.so.6`). Upstream `glibc` updates introduce newer symbol versions (e.g., `GLIBC_2.38`), rendering binaries compiled on older `glibc` versions incompatible without re-compilation or legacy symbol wrapping.
-* **ABI/API Instability & SONAME Versioning:**
-Shared libraries (`lib*.so.*`) transition quickly between major versions. When a library increments its SONAME (e.g., `libssl.so.1.1` to `libssl.so.3`), all linked user-space offensive tools must be rebuilt against the new application binary interface (ABI) to prevent runtime linker errors (`DT_NEEDED` entry mismatches).
-* **Kernel Header Synchronization (`linux-headers-*`):**
-Because the rolling release constantly updates the Linux kernel package (`linux-image-*`), corresponding kernel header trees are dynamically updated. Out-of-tree kernel modules (such as wireless drivers) must continuously build against shifting internal kernel APIs without breaking module compilation.
+* **`glibc` Dynamic Symbol Versioning:** Continuous syncs pull updated core C library binaries (`libc.so.6`). Upstream `glibc` updates introduce newer symbol versions (e.g., `GLIBC_2.38`), rendering binaries compiled on older `glibc` versions incompatible without re-compilation or legacy symbol wrapping.
+* **ABI/API Instability & SONAME Versioning:** Shared libraries (`lib*.so.*`) transition quickly between major versions. When a library increments its SONAME (e.g., `libssl.so.1.1` to `libssl.so.3`), all linked user-space offensive tools must be rebuilt against the new application binary interface (ABI) to prevent runtime linker errors (`DT_NEEDED` entry mismatches).
+* **Kernel Header Synchronization (`linux-headers-*`):** Because the rolling release constantly updates the Linux kernel package (`linux-image-*`), corresponding kernel header trees are dynamically updated. Out-of-tree kernel modules (such as wireless drivers) must continuously build against shifting internal kernel APIs without breaking module compilation.
 
 | Architectural Feature | Debian Stable (LTS) | Kali Linux (Rolling) |
 | --- | --- | --- |
@@ -51,12 +52,14 @@ Because the rolling release constantly updates the Linux kernel package (`linux-
 
 Kali manages package lifecycle phases across four primary repository tracks:
 
-1. **`kali-rolling`:** The primary production repository target for end-user systems. It contains packages that have passed testing in `kali-dev`.
-2. **`kali-dev`:** The main staging branch. Upstream Debian packages and updated offensive security tools are merged here first for automated integration testing.
-3. **`kali-experimental`:** A staging repository for building and testing packages undergoing heavy development, major toolchain changes, or API refactoring.
-4. **`kali-bleeding-edge`:** An automated repository that tracks the `HEAD` commit of active upstream Git repositories (e.g., Metasploit, Burp Suite) and builds automated snapshots independently of main release cycles.
+* `kali-rolling`: The primary production repository target for end-user systems. It contains packages that have passed testing in `kali-dev`.
+* `kali-dev`: The main staging branch. Upstream Debian packages and updated offensive security tools are merged here first for automated integration testing.
+* `kali-experimental`: A staging repository for building and testing packages undergoing heavy development, major toolchain changes, or API refactoring.
+* `kali-bleeding-edge`: An automated repository that tracks the `HEAD` commit of active upstream Git repositories (e.g., Metasploit, Burp Suite) and builds automated snapshots independently of main release cycles.
 
-#### Cryptographic Release Verification Flow
+---
+
+### Cryptographic Release Verification Flow
 
 APT verifies repository integrity using asymmetric cryptography:
 
@@ -72,8 +75,8 @@ APT verifies repository integrity using asymmetric cryptography:
 
 #### APT Engine Upgrade Operations
 
-* **`apt upgrade`:** Upgrades installed packages to their newest available versions without adding new packages or removing existing ones. If a package requires dependency additions or deletions, its upgrade is skipped.
-* **`apt full-upgrade` / `apt dist-upgrade`:** Performs the operations of `apt upgrade`, but adds intelligent conflict resolution. It dynamically handles changing package dependencies, adds new transitive dependencies, and removes obsolete or conflicting packages.
+* `apt upgrade`: Upgrades installed packages to their newest available versions without adding new packages or removing existing ones. If a package requires dependency additions or deletions, its upgrade is skipped.
+* `apt full-upgrade` / `apt dist-upgrade`: Performs the operations of `apt upgrade`, but adds intelligent conflict resolution. It dynamically handles changing package dependencies, adds new transitive dependencies, and removes obsolete or conflicting packages.
 
 #### Broken State Recovery Protocols
 
@@ -94,7 +97,7 @@ sudo apt-get dist-upgrade --fix-broken
 
 ```
 
-The setting `-o APT::Immediate-Configure=0` disables immediate configuration requirements for pre-dependencies, breaking circular dependency deadlocks during major `glibc` or system-level updates.
+> **Note:** The setting `-o APT::Immediate-Configure=0` disables immediate configuration requirements for pre-dependencies, breaking circular dependency deadlocks during major `glibc` or system-level updates.
 
 #### APT Pinning Configuration (`/etc/apt/preferences.d/`)
 
@@ -123,7 +126,7 @@ Pin-Priority: 500
 
 ## 2. KERNEL CUSTOMIZATIONS & NETWORK SUBSYSTEM PATCHES
 
-### Wireless Frame Injection & `mac80211` Patches
+### Wireless Frame Injection & mac80211 Patches
 
 The standard Linux kernel drops raw, non-standard, or unauthenticated wireless frames to maintain IEEE 802.11 protocol compliance and protect underlying physical devices. Kali patches the `mac80211` wireless stack to allow arbitrary frame crafting, bypass transmit checks, enable raw frame injection, and override regulatory domain constraints.
 
@@ -182,7 +185,7 @@ Kali kernel patches modify `net/mac80211/tx.c`, `net/mac80211/status.c`, and dri
 
 1. **Netlink Interface Instantiation:** The user-space utility creates a generic netlink socket bound to `NETLINK_GENERIC` and resolves the `nl80211` family ID.
 2. **Interface Type Modification:** The application sends an `NL80211_CMD_SET_INTERFACE` message with `NL80211_ATTR_IFTYPE` set to `NL80211_IFTYPE_MONITOR`.
-3. **Radiotap Header Insertion:** The interface is configured to prepend raw IEEE 802.11 frames with `radiotap` metadata (channel frequency, signal strength, data rate).
+3. **Radiotap Header Insertion:** The interface is configured to prepend raw IEEE 802.11 frames with radiotap metadata (channel frequency, signal strength, data rate).
 4. **Channel Selection:** The application issues `NL80211_CMD_SET_CHANNEL` specifying `NL80211_ATTR_WIPHY_FREQ` (e.g., 2412 MHz for Channel 1) and channel bandwidth parameters (`NL80211_CHAN_WIDTH_20`).
 
 ---
@@ -200,8 +203,8 @@ Modern wireless chipsets (e.g., Realtek `rtl8812au`, `rtl8814au`) are maintained
 
 #### Kernel Symbol Exporting & Module Signing
 
-* **`EXPORT_SYMBOL_GPL()`:** Out-of-tree drivers must interface with internal kernel routines exported via `EXPORT_SYMBOL()` or `EXPORT_SYMBOL_GPL()`. If a driver attempts to link against a GPL-only symbol without a GPL-compatible license string (`MODULE_LICENSE("GPL")`), the kernel loader (`kernel/module/main.c`) rejects the module.
-* **`CONFIG_MODULE_SIG` Enforcement:** Modern kernels evaluate cryptographic signatures on `.ko` binaries. If module signing is set to strict mode (`CONFIG_MODULE_SIG_FORCE=y`), unsigned out-of-tree modules fail to load via `init_module()` / `finit_module()`. On platforms using UEFI Secure Boot, custom module signing keys must be enrolled into the system's Machine Owner Key (MOK) database using `mokutil`.
+* `EXPORT_SYMBOL_GPL()`: Out-of-tree drivers must interface with internal kernel routines exported via `EXPORT_SYMBOL()` or `EXPORT_SYMBOL_GPL()`. If a driver attempts to link against a GPL-only symbol without a GPL-compatible license string (`MODULE_LICENSE("GPL")`), the kernel loader (`kernel/module/main.c`) rejects the module.
+* `CONFIG_MODULE_SIG` Enforcement: Modern kernels evaluate cryptographic signatures on `.ko` binaries. If module signing is set to strict mode (`CONFIG_MODULE_SIG_FORCE=y`), unsigned out-of-tree modules fail to load via `init_module()` / `finit_module()`. On platforms using UEFI Secure Boot, custom module signing keys must be enrolled into the system's Machine Owner Key (MOK) database using `mokutil`.
 
 ---
 
@@ -211,8 +214,8 @@ Packet injection and low-level packet capture rely on the `AF_PACKET` socket fam
 
 #### Packet Socket Modes
 
-* **`SOCK_RAW`:** Passes packet data including the link-layer (Ethernet/802.11) header directly to user space. The application crafts the complete frame, including source and destination MAC addresses.
-* **`SOCK_DGRAM`:** Link-layer headers are managed by the kernel; user space receives or transmits data starting at the network layer protocol header (e.g., IP, ARP).
+* `SOCK_RAW`: Passes packet data including the link-layer (Ethernet/802.11) header directly to user space. The application crafts the complete frame, including source and destination MAC addresses.
+* `SOCK_DGRAM`: Link-layer headers are managed by the kernel; user space receives or transmits data starting at the network layer protocol header (e.g., IP, ARP).
 
 #### Zero-Copy Operations via `TPACKET_V3` Ring Buffers
 
@@ -271,14 +274,14 @@ int initialize_tpacket_v3_ring(int sock_fd) {
 
 Rather than granting full root execution privileges, execution can be restricted using fine-grained Linux Capabilities (`include/uapi/linux/capability.h`):
 
-* **`CAP_NET_RAW`:** Permits creation of `AF_PACKET` and `AF_INET` raw sockets, as well as binding to arbitrary interface addresses.
-* **`CAP_NET_ADMIN`:** Permits interface state alterations, promiscuous mode toggle (`IFF_PROMISC`), network routing table modifications, and channel changes on wireless devices.
-* **`CAP_NET_BIND_SERVICE`:** Permits socket binding to privileged port numbers (ports `< 1024`).
+* `CAP_NET_RAW`: Permits creation of `AF_PACKET` and `AF_INET` raw sockets, as well as binding to arbitrary interface addresses.
+* `CAP_NET_ADMIN`: Permits interface state alterations, promiscuous mode toggle (`IFF_PROMISC`), network routing table modifications, and channel changes on wireless devices.
+* `CAP_NET_BIND_SERVICE`: Permits socket binding to privileged port numbers (ports < 1024).
 
 #### Advanced Socket Filtering & Device Binding
 
-* **`SO_ATTACH_FILTER`:** Attaches a compiled Berkeley Packet Filter (BPF) program to the socket at the kernel level. Unmatched packets are discarded before reaching user-space ring buffers, reducing CPU consumption.
-* **`SO_BINDTODEVICE`:** Binds the raw socket to a specific network device name (e.g., `eth0`, `wlan0mon`), preventing the socket from processing traffic originating from other interfaces.
+* `SO_ATTACH_FILTER`: Attaches a compiled Berkeley Packet Filter (BPF) program to the socket at the kernel level. Unmatched packets are discarded before reaching user-space ring buffers, reducing CPU consumption.
+* `SO_BINDTODEVICE`: Binds the raw socket to a specific network device name (e.g., `eth0`, `wlan0mon`), preventing the socket from processing traffic originating from other interfaces.
 
 ---
 
@@ -321,7 +324,7 @@ Historically (pre-2020.1), Kali deployed a root-by-default execution paradigm. T
 
 #### Granular Sudo Rule Design (`/etc/sudoers.d/kali-grant-capabilities`)
 
-Instead of granting unrestricted root command access (`ALL=(ALL:ALL) ALL`), `sudo` rules should restrict operational boundaries:
+Instead of granting unrestricted root command access (`ALL=(ALL:ALL) ALL`), sudo rules should restrict operational boundaries:
 
 ```ini
 # Grant specific network analysis tools execution rights without password input
@@ -367,9 +370,9 @@ getcap /usr/local/bin/custom_sniffer
 
 ### Service Privilege Isolation & Sandboxing
 
-#### Hardened `systemd` Unit Architecture
+#### Hardened systemd Unit Architecture
 
-`systemd` service units for exposed network daemons, listeners, or payloads should enforce privilege containment to prevent lateral movement if a service is compromised.
+systemd service units for exposed network daemons, listeners, or payloads should enforce privilege containment to prevent lateral movement if a service is compromised.
 
 ```ini
 # /etc/systemd/system/kali-network-listener.service
@@ -457,23 +460,23 @@ AppArmor enforces path-based access control rules for network tools and services
 
 1. **Linux Kernel Wireless Subsystem Source:**
 * Path: `net/mac80211/tx.c`
-* URL: [https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/net/mac80211/tx.c](https://www.google.com/search?q=https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/net/mac80211/tx.c)
+* URL: [https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/net/mac80211/tx.c](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/net/mac80211/tx.c)
 * *Relevance:* Transmit handling routine implementation and raw frame injection check overrides.
 
 
 2. **Linux Kernel Packet Socket Source:**
 * Path: `net/packet/af_packet.c`
-* URL: [https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/net/packet/af_packet.c](https://www.google.com/search?q=https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/net/packet/af_packet.c)
+* URL: [https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/net/packet/af_packet.c](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/net/packet/af_packet.c)
 * *Relevance:* Implementation mechanics of `AF_PACKET`, `SOCK_RAW`, and `TPACKET_V3` ring buffers.
 
 
-3. **Debian Policy Manual - Shared Libraries:**
+3. **Debian Policy Manual — Shared Libraries:**
 * Author: Debian Policy Team
 * URL: [https://www.debian.org/doc/debian-policy/ch-sharedlibs.html](https://www.debian.org/doc/debian-policy/ch-sharedlibs.html)
 * *Relevance:* SONAME versioning standards, dynamic linking constraints, and ABI tracking.
 
 
-4. **Kali Linux Documentation - Debian Base & Release Model:**
+4. **Kali Linux Documentation — Debian Base & Release Model:**
 * Author: OffSec / Kali Development Team
 * URL: [https://www.kali.org/docs/general-use/kali-branches/](https://www.kali.org/docs/general-use/kali-branches/)
 * *Relevance:* Repository structures (`kali-rolling`, `kali-dev`, `kali-bleeding-edge`) and release validation flows.
